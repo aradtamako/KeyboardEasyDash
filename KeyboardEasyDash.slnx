@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="KeyboardEasyDash/KeyboardEasyDash.vcxproj" Id="3e3ff94c-e703-4462-b5b3-8b0df8b3f87c" />
+</Solution>
