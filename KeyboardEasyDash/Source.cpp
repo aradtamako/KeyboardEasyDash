@@ -1,18 +1,20 @@
 ﻿#include <Windows.h>
 #include <iostream>
+#include <Shlwapi.h>
+#pragma comment(lib, "shlwapi.lib")
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
 
-#include <ViGEm/Client.h>
-#pragma comment(lib, "setupapi.lib")
-
 #include "DetoursHelper.hpp"
+#include "Util.hpp"
+#include "VirtualGamePadState.hpp"
 
 #define FUNCTION_INDEX_GET_DEVICE_STATE 9
 
+HINSTANCE hSelfModule = nullptr;
 LPDIRECTINPUT8 pDirectInput = nullptr;
 LPDIRECTINPUTDEVICE8 pDirectInputDevice = nullptr;
 HRESULT(*funcGetDeviceState)(IDirectInputDevice8* pThis, DWORD cbData, LPVOID lpvData);
@@ -70,31 +72,8 @@ void WaitForDirectInputLoad() {
 	}
 }
 
-PVIGEM_TARGET InitializeVirtualGamePad() {
-	auto client = vigem_alloc();
-	auto err = vigem_connect(client);
-
-	if (!VIGEM_SUCCESS(err)) {
-		vigem_free(client);
-		client = nullptr;
-		MessageBox(nullptr, L"Failed initialize ViGEm", L"Error", MB_OK);
-
-		return nullptr;
-	}
-
-	auto target = vigem_target_ds4_alloc();
-	vigem_target_add(client, target);
-
-	return target;
-}
-
-void MainThread() {
-	WaitForDirectInputLoad();
-
+void DirectInputThread() {
 	auto hInstance = GetModuleHandle(NULL);
-
-	// 仮想ゲームパッドを起動する
-	auto target = InitializeVirtualGamePad();
 
 	while (true) {
 		if (DirectInput8Create(hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8, reinterpret_cast<LPVOID*>(&pDirectInput), NULL) != DI_OK) {
@@ -111,10 +90,21 @@ void MainThread() {
 	}
 }
 
+void MainThread() {
+	WaitForDirectInputLoad();
+	CreateThread(NULL, NULL, reinterpret_cast<LPTHREAD_START_ROUTINE>(&DirectInputThread), NULL, NULL, NULL);
+
+	// ViGEmClient is statically linked (x64-windows-static-md), so no DLL to load manually.
+	KeyboardEasyDash::InitializeVirtualGamePad();
+	KeyboardEasyDash::InitializeMainForm();
+}
+
 #pragma unmanaged
 BOOL WINAPI DllMain(HINSTANCE hinstModule, DWORD dwReason, LPVOID lpvReserved) {
 	if (dwReason == DLL_PROCESS_ATTACH) {
 		DisableThreadLibraryCalls(hinstModule);
+
+		hSelfModule = hinstModule;
 
 		CreateThread(NULL, NULL, reinterpret_cast<LPTHREAD_START_ROUTINE>(&MainThread), NULL, NULL, NULL);
 	}
