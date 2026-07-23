@@ -1,5 +1,7 @@
 ﻿#include <Windows.h>
 #include <iostream>
+#include <Shlwapi.h>
+#pragma comment(lib, "shlwapi.lib")
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
@@ -7,9 +9,12 @@
 #pragma comment(lib, "dxguid.lib")
 
 #include "DetoursHelper.hpp"
+#include "Util.hpp"
+#include "VirtualGamePadState.hpp"
 
 #define FUNCTION_INDEX_GET_DEVICE_STATE 9
 
+HINSTANCE hSelfModule = nullptr;
 LPDIRECTINPUT8 pDirectInput = nullptr;
 LPDIRECTINPUTDEVICE8 pDirectInputDevice = nullptr;
 HRESULT(*funcGetDeviceState)(IDirectInputDevice8* pThis, DWORD cbData, LPVOID lpvData);
@@ -67,9 +72,7 @@ void WaitForDirectInputLoad() {
 	}
 }
 
-void MainThread() {
-	WaitForDirectInputLoad();
-
+void DirectInputThread() {
 	auto hInstance = GetModuleHandle(NULL);
 
 	while (true) {
@@ -87,10 +90,21 @@ void MainThread() {
 	}
 }
 
+void MainThread() {
+	WaitForDirectInputLoad();
+	CreateThread(NULL, NULL, reinterpret_cast<LPTHREAD_START_ROUTINE>(&DirectInputThread), NULL, NULL, NULL);
+
+	// ViGEmClient is statically linked (x64-windows-static-md), so no DLL to load manually.
+	KeyboardEasyDash::InitializeVirtualGamePad();
+	KeyboardEasyDash::InitializeMainForm();
+}
+
 #pragma unmanaged
 BOOL WINAPI DllMain(HINSTANCE hinstModule, DWORD dwReason, LPVOID lpvReserved) {
 	if (dwReason == DLL_PROCESS_ATTACH) {
 		DisableThreadLibraryCalls(hinstModule);
+
+		hSelfModule = hinstModule;
 
 		CreateThread(NULL, NULL, reinterpret_cast<LPTHREAD_START_ROUTINE>(&MainThread), NULL, NULL, NULL);
 	}
