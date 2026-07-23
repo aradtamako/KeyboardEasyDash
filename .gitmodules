@@ -1,3 +1,3 @@
 [submodule "ViGEmClient.vcpkg"]
 	path = ViGEmClient.vcpkg
-	url = https://github.com/nefarius/ViGEmClient.vcpkg
+	url = https://github.com/aradtamako/ViGEmClient.vcpkg
