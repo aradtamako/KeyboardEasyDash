@@ -3,6 +3,7 @@
   "name": "keyboardeasydash",
   "version": "1.0.0",
   "dependencies": [
-    "detours"
+    "detours",
+    "vigemclient"
   ]
 }
