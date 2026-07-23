@@ -6,6 +6,9 @@
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
 
+#include <ViGEm/Client.h>
+#pragma comment(lib, "setupapi.lib")
+
 #include "DetoursHelper.hpp"
 
 #define FUNCTION_INDEX_GET_DEVICE_STATE 9
@@ -67,10 +70,31 @@ void WaitForDirectInputLoad() {
 	}
 }
 
+PVIGEM_TARGET InitializeVirtualGamePad() {
+	auto client = vigem_alloc();
+	auto err = vigem_connect(client);
+
+	if (!VIGEM_SUCCESS(err)) {
+		vigem_free(client);
+		client = nullptr;
+		MessageBox(nullptr, L"Failed initialize ViGEm", L"Error", MB_OK);
+
+		return nullptr;
+	}
+
+	auto target = vigem_target_ds4_alloc();
+	vigem_target_add(client, target);
+
+	return target;
+}
+
 void MainThread() {
 	WaitForDirectInputLoad();
 
 	auto hInstance = GetModuleHandle(NULL);
+
+	// 仮想ゲームパッドを起動する
+	auto target = InitializeVirtualGamePad();
 
 	while (true) {
 		if (DirectInput8Create(hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8, reinterpret_cast<LPVOID*>(&pDirectInput), NULL) != DI_OK) {
