@@ -9,6 +9,8 @@
 #pragma comment(lib, "dxguid.lib")
 
 #include "DetoursHelper.hpp"
+#include "GuiState.hpp"
+#include "ImGuiOverlay.hpp"
 #include "Util.hpp"
 #include "VirtualGamePadState.hpp"
 
@@ -37,12 +39,14 @@ void DetourGetDeviceState() {
 			case sizeof(DIJOYSTATE2) : {
 				auto data = reinterpret_cast<DIJOYSTATE2*>(lpvData);
 
-				// EasyDash for keyboard
-				if (GetAsyncKeyState(VK_LEFT) & 0x8000) {
-					data->lX = -1000;
-				}
-				else if (GetAsyncKeyState(VK_RIGHT) & 0x8000) {
-					data->lX = 1000;
+				// EasyDash for keyboard (ImGuiで無効化されている間は素通しする)
+				if (KeyboardEasyDash::g_easyDashEnabled.load()) {
+					if (GetAsyncKeyState(VK_LEFT) & 0x8000) {
+						data->lX = -1000;
+					}
+					else if (GetAsyncKeyState(VK_RIGHT) & 0x8000) {
+						data->lX = 1000;
+					}
 				}
 				break;
 			}
@@ -90,13 +94,25 @@ void DirectInputThread() {
 	}
 }
 
+void OverlayThread() {
+	// ゲーム側のD3D11初期化を待つため、成功するまでリトライする。
+	for (int i = 0; i < 30; ++i) {
+		if (KeyboardEasyDash::InitializeOverlay()) {
+			break;
+		}
+		Sleep(2000);
+	}
+}
+
 void MainThread() {
 	WaitForDirectInputLoad();
 	CreateThread(NULL, NULL, reinterpret_cast<LPTHREAD_START_ROUTINE>(&DirectInputThread), NULL, NULL, NULL);
 
 	// ViGEmClient is statically linked (x64-windows-static-md), so no DLL to load manually.
 	KeyboardEasyDash::InitializeVirtualGamePad();
-	KeyboardEasyDash::InitializeMainForm();
+
+	// DirectX 11 ImGuiオーバーレイを開始する。
+	CreateThread(NULL, NULL, reinterpret_cast<LPTHREAD_START_ROUTINE>(&OverlayThread), NULL, NULL, NULL);
 }
 
 #pragma unmanaged

@@ -49,10 +49,10 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <CLRSupport>true</CLRSupport>
+    <CLRSupport>false</CLRSupport>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -142,15 +142,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="MainForm.cpp" />
+    <ClCompile Include="ImGuiOverlay.cpp">
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="Source.cpp" />
     <ClCompile Include="VirtualGamePadState.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DetoursHelper.hpp" />
-    <ClInclude Include="MainForm.h">
-      <FileType>CppForm</FileType>
-    </ClInclude>
+    <ClInclude Include="GuiState.hpp" />
+    <ClInclude Include="ImGuiOverlay.hpp" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Util.hpp" />
     <ClInclude Include="VirtualGamePadState.hpp" />
@@ -167,11 +168,6 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="MainForm.resx">
-      <DependentUpon>MainForm.h</DependentUpon>
-    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
