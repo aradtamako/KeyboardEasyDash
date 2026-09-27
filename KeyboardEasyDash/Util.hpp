@@ -4,13 +4,12 @@
 #include <ViGEm/Client.h>
 #pragma comment(lib, "setupapi.lib")
 
-#include "MainForm.h"
+#include "VirtualGamePadState.hpp"
+#include "GuiState.hpp"
 
 namespace KeyboardEasyDash {
 
-	using namespace System::Windows::Forms;
-
-	PVIGEM_TARGET InitializeVirtualGamePad() {
+	inline PVIGEM_TARGET InitializeVirtualGamePad() {
 		VirtualGamePadState::Client = vigem_alloc();
 		auto err = vigem_connect(VirtualGamePadState::Client);
 
@@ -23,15 +22,29 @@ namespace KeyboardEasyDash {
 		}
 
 		VirtualGamePadState::Target = vigem_target_ds4_alloc();
-		vigem_target_add(VirtualGamePadState::Client, VirtualGamePadState::Target);
+		if (VIGEM_SUCCESS(vigem_target_add(VirtualGamePadState::Client, VirtualGamePadState::Target))) {
+			g_targetAdded.store(true);
+		}
 
 		return VirtualGamePadState::Target;
 	}
 
-	void InitializeMainForm() {
-		Application::EnableVisualStyles();
-		Application::SetCompatibleTextRenderingDefault(false);
-		KeyboardEasyDash::MainForm form;
-		Application::Run(% form);
+	// ImGuiのラジオボタンから有効/無効を切り替える。
+	// 無効時は仮想パッドをバスから取り外し、DirectInputフックも素通しにする。
+	inline void SetEasyDashEnabled(bool enabled) {
+		g_easyDashEnabled.store(enabled);
+
+		if (VirtualGamePadState::Client == nullptr || VirtualGamePadState::Target == nullptr) {
+			return;
+		}
+		if (enabled && !g_targetAdded.load()) {
+			if (VIGEM_SUCCESS(vigem_target_add(VirtualGamePadState::Client, VirtualGamePadState::Target))) {
+				g_targetAdded.store(true);
+			}
+		} else if (!enabled && g_targetAdded.load()) {
+			if (VIGEM_SUCCESS(vigem_target_remove(VirtualGamePadState::Client, VirtualGamePadState::Target))) {
+				g_targetAdded.store(false);
+			}
+		}
 	}
 };
