@@ -45,6 +45,12 @@ ID3D11RenderTargetView* g_renderTargetView = nullptr;
 bool g_imguiInitialized = false;
 bool g_hookInstalled = false;
 bool g_insertPrevDown = false;
+bool g_insertComboSwallowed = false;
+
+bool IsShiftDown() {
+  return (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0 || (GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0 ||
+         (GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0;
+}
 
 void* GetVtableFunction(void* instance, int index) {
   auto vtable = *reinterpret_cast<void***>(instance);
@@ -52,11 +58,12 @@ void* GetVtableFunction(void* instance, int index) {
 }
 
 void PollInsertToggle() {
-  const bool down = (GetAsyncKeyState(VK_INSERT) & 0x8000) != 0;
-  if (down && !g_insertPrevDown) {
+  // Shift + Insert のエッジでのみ表示/非表示を切り替える。Insert単体はゲームに渡す。
+  const bool insertDown = (GetAsyncKeyState(VK_INSERT) & 0x8000) != 0;
+  if (insertDown && !g_insertPrevDown && IsShiftDown()) {
     g_overlayVisible.store(!g_overlayVisible.load());
   }
-  g_insertPrevDown = down;
+  g_insertPrevDown = insertDown;
 }
 
 void ReleaseRenderTarget() {
@@ -145,7 +152,7 @@ void RenderSettingsWindow() {
     SetEasyDashEnabled(false);
   }
   ImGui::Spacing();
-  ImGui::TextDisabled("Insert: 表示/非表示");
+  ImGui::TextDisabled("Shift+Insert: 表示/非表示");
   ImGui::End();
 }
 
@@ -180,13 +187,25 @@ HRESULT STDMETHODCALLTYPE HookResizeBuffers(IDXGISwapChain* pSwapChain, UINT buf
 }
 
 LRESULT CALLBACK HookWndProc_Impl(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-  // Insertは表示/非表示の切り替えに使う。ゲーム側へは渡さない。
+  // Shift + Insertは表示/非表示の切り替えに使う。ゲーム側へは渡さない。
+  // Insert単体はゲームに渡す。
   if (msg == WM_KEYDOWN && wParam == VK_INSERT) {
-    PollInsertToggleKey();
+    if (!IsShiftDown()) {
+      return CallWindowProc(g_originalWndProc, hWnd, msg, wParam, lParam);
+    }
+    // リピートではトグルしないが、ゲームにも渡さない。
+    if ((lParam & (1 << 30)) == 0) {
+      PollInsertToggleKey();
+    }
+    g_insertComboSwallowed = true;
     return 0;
   }
   if (msg == WM_KEYUP && wParam == VK_INSERT) {
-    return 0;
+    if (g_insertComboSwallowed) {
+      g_insertComboSwallowed = false;
+      return 0;
+    }
+    return CallWindowProc(g_originalWndProc, hWnd, msg, wParam, lParam);
   }
 
   if (!g_overlayVisible.load()) {
@@ -207,10 +226,11 @@ LRESULT CALLBACK HookWndProc_Impl(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 }
 
 // WM_KEYDOWNはGetAsyncKeyStateのポーリングと二重に反応するため、
-// WndProc側はキー状態のエッジを見てInsertを処理する。
+// WndProc側はキー状態のエッジを見てShift + Insertを処理する。
 void PollInsertToggleKey() {
   g_overlayVisible.store(!g_overlayVisible.load());
   g_insertPrevDown = true;
+  g_insertComboSwallowed = true;
 }
 
 // ゲーム本体とは無関係なダミーSwapChainからPresent/ResizeBuffersのアドレスを取得する。
